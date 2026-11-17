@@ -7,6 +7,7 @@
 - **Rule:** Always compile and run `ctest` after modifying code before finishing a task.
 
 ## Architecture
+- `src/types.hpp`: Main data types used throughout the project
 - `src/bitboard.hpp`: 64-bit board representation, bit manipulation helpers, attack tables
 - `src/position.hpp/.cpp`: Board state, Zobrist hashing, `make_move` / `unmake_move`
 - `src/movegen.hpp/.cpp`: Legal/pseudo-legal move generation and `perft`
