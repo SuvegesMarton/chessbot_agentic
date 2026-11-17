@@ -343,6 +343,24 @@ Undo Position::make_move(const Move& move) {
     return undo;
 }
 
+Piece Position::piece_on(Square s) const {
+    for (int c = 0; c < 2; ++c) {
+        for (int t = 0; t < 6; ++t) {
+            if (is_set(pieces[c][t], s)) {
+                return {static_cast<Color>(c), static_cast<PieceType>(t)};
+            }
+        }
+    }
+    return {Color::White, PieceType::None};
+}
+
+std::array<Piece, 64> Position::board_snapshot() const {
+    std::array<Piece, 64> arr{};
+    for (int sq = 0; sq < 64; ++sq) {
+        arr[sq] = piece_on(static_cast<Square>(sq));
+    }
+    return arr;
+}
 void Position::unmake_move(const Undo& undo) {
     const Move move = undo.move;
     const Color us = opposite(side_to_move);

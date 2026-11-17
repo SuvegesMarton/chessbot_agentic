@@ -182,3 +182,27 @@ inline Bitboard bishop_attacks(Square sq, Bitboard occ) {
 inline Bitboard queen_attacks(Square sq, Bitboard occ) {
     return rook_attacks(sq, occ) | bishop_attacks(sq, occ);
 }
+
+#include "position.hpp"
+
+inline bool is_square_attacked(const Position& pos, Square sq, Color byColor) {
+    const int c = static_cast<int>(byColor);
+    const int oc = static_cast<int>(byColor == Color::White ? Color::Black : Color::White);
+    // knights
+    if (knight_attacks[static_cast<int>(sq)] & pos.pieces[c][static_cast<int>(PieceType::Knight)]) return true;
+    // king
+    if (king_attacks[static_cast<int>(sq)] & pos.pieces[c][static_cast<int>(PieceType::King)]) return true;
+    // pawns
+    if (byColor == Color::White) {
+        if (pawn_attacks_black[static_cast<int>(sq)] & pos.pieces[c][static_cast<int>(PieceType::Pawn)]) return true;
+    } else {
+        if (pawn_attacks_white[static_cast<int>(sq)] & pos.pieces[c][static_cast<int>(PieceType::Pawn)]) return true;
+    }
+    // sliding
+    Bitboard rookQ = pos.pieces[c][static_cast<int>(PieceType::Rook)] | pos.pieces[c][static_cast<int>(PieceType::Queen)];
+    Bitboard bishopQ = pos.pieces[c][static_cast<int>(PieceType::Bishop)] | pos.pieces[c][static_cast<int>(PieceType::Queen)];
+    if (rook_attacks(sq, pos.all_occupancy) & rookQ) return true;
+    if (bishop_attacks(sq, pos.all_occupancy) & bishopQ) return true;
+    (void)oc;
+    return false;
+}

@@ -38,5 +38,8 @@ public:
     Undo make_move(const Move& move);
     void unmake_move(const Undo& undo);
 
+    Piece piece_on(Square s) const;
+    std::array<Piece, 64> board_snapshot() const;
+
     std::uint64_t hash() const { return zobrist_hash; }
 };
