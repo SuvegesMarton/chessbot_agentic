@@ -102,7 +102,7 @@ void Position::set_starting_position() {
         all_occupancy |= square_bit(s);
     };
 
-    const int back_rank[8] = {0, 1, 2, 3, 4, 2, 1, 0};  // R N B Q K B N R
+    const int back_rank[8] = {3, 1, 2, 4, 5, 2, 1, 3};  // R N B Q K B N R
     for (int f = 0; f < 8; ++f) {
         PieceType pt = static_cast<PieceType>(back_rank[f]);
         place(Color::White, pt, make_square(f, 0));

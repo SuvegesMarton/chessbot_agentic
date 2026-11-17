@@ -28,6 +28,14 @@ target_include_directories(test_position PRIVATE src)
 add_executable(test_bitboard tests/test_bitboard.cpp)
 target_include_directories(test_bitboard PRIVATE src)
 
+add_executable(test_move tests/test_move.cpp)
+target_include_directories(test_move PRIVATE src)
+
+add_executable(test_position_helpers tests/test_position_helpers.cpp src/position.cpp)
+target_include_directories(test_position_helpers PRIVATE src)
+
 add_test(NAME test_main COMMAND test_main)
 add_test(NAME test_bitboard COMMAND test_bitboard)
+add_test(NAME test_move COMMAND test_move)
 add_test(NAME test_position COMMAND test_position)
+add_test(NAME test_position_helpers COMMAND test_position_helpers)
