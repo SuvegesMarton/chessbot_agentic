@@ -21,5 +21,5 @@
 - Never alter `perft` expected reference counts in `tests/` to make a failing test pass.
 
 ## Git Workflow
-- Create a feature branch (`feat/...` or `perf/...`) before starting work.
+- Create a feature branch (`feature/...`) before starting work.
 - Use Conventional Commits and open draft PRs (`gh pr create --draft`).
