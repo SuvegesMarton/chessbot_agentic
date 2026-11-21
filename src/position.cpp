@@ -354,6 +354,58 @@ Piece Position::piece_on(Square s) const {
     return {Color::White, PieceType::None};
 }
 
+std::string Position::to_fen() const {
+    std::string s;
+    for (int rank = 7; rank >= 0; --rank) {
+        int empty = 0;
+        for (int file = 0; file < 8; ++file) {
+            Square sq = make_square(file, rank);
+            Piece pc = piece_on(sq);
+            if (pc.type == PieceType::None) {
+                ++empty;
+            } else {
+                if (empty > 0) { s += static_cast<char>('0' + empty); empty = 0; }
+                char c;
+                switch (pc.type) {
+                    case PieceType::Pawn: c = 'p'; break;
+                    case PieceType::Knight: c = 'n'; break;
+                    case PieceType::Bishop: c = 'b'; break;
+                    case PieceType::Rook: c = 'r'; break;
+                    case PieceType::Queen: c = 'q'; break;
+                    case PieceType::King: c = 'k'; break;
+                    default: c = '?'; break;
+                }
+                if (pc.color == Color::White) c = static_cast<char>(c - ('a' - 'A'));
+                s.push_back(c);
+            }
+        }
+        if (empty > 0) s += static_cast<char>('0' + empty);
+        if (rank > 0) s.push_back('/');
+    }
+    s.push_back(' ');
+    s.push_back(side_to_move == Color::White ? 'w' : 'b');
+    s += " ";
+    std::string castle;
+    if (castling_rights & castling_wk) castle += 'K';
+    if (castling_rights & castling_wq) castle += 'Q';
+    if (castling_rights & castling_bk) castle += 'k';
+    if (castling_rights & castling_bq) castle += 'q';
+    if (castle.empty()) castle = "-";
+    s += castle;
+    s += " ";
+    if (en_passant == Square::None) {
+        s += "-";
+    } else {
+        s.push_back(static_cast<char>('a' + file_of(en_passant)));
+        s.push_back(static_cast<char>('1' + rank_of(en_passant)));
+    }
+    s += " ";
+    s += std::to_string(halfmove_clock);
+    s += " ";
+    s += std::to_string(fullmove_number);
+    return s;
+}
+
 std::array<Piece, 64> Position::board_snapshot() const {
     std::array<Piece, 64> arr{};
     for (int sq = 0; sq < 64; ++sq) {

@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstdint>
+#include <string>
 #include <string_view>
 
 #include "types.hpp"
@@ -40,6 +41,7 @@ public:
 
     Piece piece_on(Square s) const;
     std::array<Piece, 64> board_snapshot() const;
+    std::string to_fen() const;
 
     std::uint64_t hash() const { return zobrist_hash; }
 };
