@@ -202,6 +202,10 @@ function handleTextMessage(text) {
 
   if (text.startsWith("bestmove ")) {
     thinking = false;
+    const mv = text.slice(9).trim();
+    if (/^[a-h][1-8][a-h][1-8][qrbn]?$/.test(mv)) {
+      moves.push(mv);
+    }
     render();
     return;
   }

@@ -66,7 +66,7 @@ Square parse_square(std::string_view s) {
     return make_square(f, r);
 }
 
-void apply_moves_strict(GameSession& session, std::string_view moves_str) {
+bool apply_moves_strict(GameSession& session, std::string_view moves_str) {
     std::size_t i = 0;
     while (i < moves_str.size()) {
         while (i < moves_str.size() && moves_str[i] == ' ') ++i;
@@ -79,10 +79,11 @@ void apply_moves_strict(GameSession& session, std::string_view moves_str) {
         if (m.from != Square::None) {
             if (!session.try_apply_move(m)) {
                 std::cerr << "[chessbot] illegal move rejected: " << tok << "\n";
-                break;
+                return false;
             }
         }
     }
+    return true;
 }
 
 SearchLimits parse_go_command(std::string_view line) {
@@ -198,11 +199,12 @@ void run_web_server(int port) {
                 } else if (line.rfind("position", 0) == 0) {
                     if (line.find("startpos") != std::string::npos) {
                         session.reset_startpos();
+                        bool ok = true;
                         auto mi = line.find("moves");
                         if (mi != std::string::npos) {
-                            apply_moves_strict(session, line.substr(mi + 5));
+                            ok = apply_moves_strict(session, line.substr(mi + 5));
                         }
-                        emit = true;
+                        emit = ok;
                     } else if (line.find("fen") != std::string::npos) {
                         auto fi = line.find("fen");
                         std::string after = line.substr(fi + 3);
@@ -218,10 +220,14 @@ void run_web_server(int port) {
                             fenpart = after;
                         }
                         while (!fenpart.empty() && fenpart.back() == ' ') fenpart.pop_back();
+                        bool ok = false;
                         if (session.set_fen(fenpart)) {
-                            apply_moves_strict(session, movespart);
+                            ok = true;
+                            if (mi != std::string::npos) {
+                                ok = apply_moves_strict(session, movespart);
+                            }
                         }
-                        emit = true;
+                        emit = ok;
                     }
                 } else if (line.rfind("go", 0) == 0) {
                     SearchLimits limits = parse_go_command(line);
