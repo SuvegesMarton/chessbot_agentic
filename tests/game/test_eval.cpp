@@ -2,9 +2,9 @@
 #include <iostream>
 #include <cmath>
 
-#include "eval.hpp"
-#include "position.hpp"
-#include "movegen.hpp"
+#include "game/eval.hpp"
+#include "game/position.hpp"
+#include "game/movegen.hpp"
 
 namespace {
 

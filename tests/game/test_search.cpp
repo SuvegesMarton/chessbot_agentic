@@ -3,11 +3,11 @@
 #include <chrono>
 #include <thread>
 
-#include "search.hpp"
-#include "eval.hpp"
-#include "position.hpp"
-#include "movegen.hpp"
-#include "move.hpp"
+#include "game/search.hpp"
+#include "game/eval.hpp"
+#include "game/position.hpp"
+#include "game/movegen.hpp"
+#include "core/move.hpp"
 
 namespace {
 

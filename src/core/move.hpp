@@ -5,8 +5,8 @@
 #include <string>
 #include <string_view>
 
-#include "types.hpp"
-#include "bitboard.hpp"
+#include "core/types.hpp"
+#include "core/bitboard.hpp"
 
 constexpr std::size_t MOVE_LIST_CAPACITY = 256;
 

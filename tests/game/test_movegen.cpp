@@ -2,9 +2,9 @@
 #include <iostream>
 #include <string>
 
-#include "movegen.hpp"
-#include "position.hpp"
-#include "types.hpp"
+#include "game/movegen.hpp"
+#include "game/position.hpp"
+#include "core/types.hpp"
 
 namespace {
 

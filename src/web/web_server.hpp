@@ -4,7 +4,7 @@
 #include <string>
 #include <string_view>
 
-#include "search.hpp"
+#include "game/search.hpp"
 
 class GameSession;
 

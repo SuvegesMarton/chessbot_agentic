@@ -4,7 +4,7 @@
 #include <bit>
 #include <cstdint>
 
-#include "types.hpp"
+#include "core/types.hpp"
 
 inline int popcount(Bitboard b) { return std::popcount(b); }
 

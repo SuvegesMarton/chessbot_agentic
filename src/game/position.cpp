@@ -1,10 +1,10 @@
-#include "position.hpp"
+#include "game/position.hpp"
 
 #include <array>
 #include <cstdint>
 #include <cstdlib>
 
-#include "bitboard.hpp"
+#include "core/bitboard.hpp"
 
 namespace {
 

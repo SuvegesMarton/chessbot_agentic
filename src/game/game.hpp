@@ -6,11 +6,11 @@
 #include <vector>
 #include <functional>
 
-#include "position.hpp"
-#include "types.hpp"
-#include "move.hpp"
-#include "movegen.hpp"
-#include "search.hpp"
+#include "game/position.hpp"
+#include "core/types.hpp"
+#include "core/move.hpp"
+#include "game/movegen.hpp"
+#include "game/search.hpp"
 
 enum class PlayerType { Human, Bot };
 

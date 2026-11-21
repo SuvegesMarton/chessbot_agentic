@@ -1,6 +1,6 @@
-#include "eval.hpp"
-#include "position.hpp"
-#include "bitboard.hpp"
+#include "game/eval.hpp"
+#include "game/position.hpp"
+#include "core/bitboard.hpp"
 
 #include <array>
 #include <algorithm>

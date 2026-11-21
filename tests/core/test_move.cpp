@@ -2,9 +2,9 @@
 #include <iostream>
 #include <string>
 
-#include "move.hpp"
-#include "position.hpp"
-#include "types.hpp"
+#include "core/move.hpp"
+#include "game/position.hpp"
+#include "core/types.hpp"
 
 namespace {
 

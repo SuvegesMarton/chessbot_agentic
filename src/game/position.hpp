@@ -5,8 +5,8 @@
 #include <string>
 #include <string_view>
 
-#include "types.hpp"
-#include "move.hpp"
+#include "core/types.hpp"
+#include "core/move.hpp"
 
 class Position {
 public:

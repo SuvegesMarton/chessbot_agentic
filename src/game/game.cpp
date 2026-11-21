@@ -1,7 +1,7 @@
-#include "game.hpp"
+#include "game/game.hpp"
 
-#include "movegen.hpp"
-#include "search.hpp"
+#include "game/movegen.hpp"
+#include "game/search.hpp"
 
 #include <vector>
 #include <algorithm>

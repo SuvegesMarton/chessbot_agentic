@@ -1,9 +1,9 @@
-#include "search.hpp"
-#include "eval.hpp"
-#include "movegen.hpp"
-#include "position.hpp"
-#include "bitboard.hpp"
-#include "move.hpp"
+#include "game/search.hpp"
+#include "game/eval.hpp"
+#include "game/movegen.hpp"
+#include "game/position.hpp"
+#include "core/bitboard.hpp"
+#include "core/move.hpp"
 
 #include <algorithm>
 #include <cassert>

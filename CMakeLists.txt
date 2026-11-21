@@ -28,12 +28,12 @@ enable_testing()
 
 add_executable(chessbot
     src/main.cpp
-    src/position.cpp
-    src/movegen.cpp
-    src/game.cpp
-    src/web_server.cpp
-    src/eval.cpp
-    src/search.cpp
+    src/game/position.cpp
+    src/game/movegen.cpp
+    src/game/game.cpp
+    src/web/web_server.cpp
+    src/game/eval.cpp
+    src/game/search.cpp
 )
 target_include_directories(chessbot PRIVATE src third_party)
 if(WIN32)
@@ -41,42 +41,42 @@ if(WIN32)
 endif()
 chessbot_enable_native(chessbot)
 
-add_executable(test_main tests/test_main.cpp)
+add_executable(test_main tests/core/test_main.cpp)
 target_include_directories(test_main PRIVATE src)
 chessbot_enable_native(test_main)
 
-add_executable(test_position tests/test_position.cpp src/position.cpp)
+add_executable(test_position tests/game/test_position.cpp src/game/position.cpp)
 target_include_directories(test_position PRIVATE src)
 chessbot_enable_native(test_position)
 
-add_executable(test_bitboard tests/test_bitboard.cpp)
+add_executable(test_bitboard tests/core/test_bitboard.cpp)
 target_include_directories(test_bitboard PRIVATE src)
 chessbot_enable_native(test_bitboard)
 
-add_executable(test_move tests/test_move.cpp)
+add_executable(test_move tests/core/test_move.cpp)
 target_include_directories(test_move PRIVATE src)
 chessbot_enable_native(test_move)
 
-add_executable(test_position_helpers tests/test_position_helpers.cpp src/position.cpp)
+add_executable(test_position_helpers tests/game/test_position_helpers.cpp src/game/position.cpp)
 target_include_directories(test_position_helpers PRIVATE src)
 chessbot_enable_native(test_position_helpers)
 
-add_executable(test_web_server tests/test_web_server.cpp src/web_server.cpp src/game.cpp src/position.cpp src/movegen.cpp src/eval.cpp src/search.cpp)
+add_executable(test_web_server tests/web/test_web_server.cpp src/web/web_server.cpp src/game/game.cpp src/game/position.cpp src/game/movegen.cpp src/game/eval.cpp src/game/search.cpp)
 target_include_directories(test_web_server PRIVATE src third_party)
 if(WIN32)
     target_link_libraries(test_web_server PRIVATE ws2_32)
 endif()
 # Intentionally no chessbot_enable_native(test_web_server): see note above.
 
-add_executable(test_movegen tests/test_movegen.cpp src/position.cpp src/movegen.cpp)
+add_executable(test_movegen tests/game/test_movegen.cpp src/game/position.cpp src/game/movegen.cpp)
 target_include_directories(test_movegen PRIVATE src)
 chessbot_enable_native(test_movegen)
 
-add_executable(test_eval tests/test_eval.cpp src/position.cpp src/movegen.cpp src/eval.cpp)
+add_executable(test_eval tests/game/test_eval.cpp src/game/position.cpp src/game/movegen.cpp src/game/eval.cpp)
 target_include_directories(test_eval PRIVATE src)
 chessbot_enable_native(test_eval)
 
-add_executable(test_search tests/test_search.cpp src/position.cpp src/movegen.cpp src/eval.cpp src/search.cpp)
+add_executable(test_search tests/game/test_search.cpp src/game/position.cpp src/game/movegen.cpp src/game/eval.cpp src/game/search.cpp)
 target_include_directories(test_search PRIVATE src)
 chessbot_enable_native(test_search)
 

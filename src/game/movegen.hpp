@@ -1,7 +1,7 @@
 #pragma once
 
-#include "move.hpp"
-#include "position.hpp"
+#include "core/move.hpp"
+#include "game/position.hpp"
 
 namespace movegen {
 

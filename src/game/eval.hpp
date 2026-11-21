@@ -1,5 +1,5 @@
 #pragma once
-#include "position.hpp"
+#include "game/position.hpp"
 
 namespace eval {
 

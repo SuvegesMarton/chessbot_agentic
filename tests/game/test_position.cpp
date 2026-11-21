@@ -2,8 +2,8 @@
 #include <iostream>
 #include <string>
 
-#include "position.hpp"
-#include "types.hpp"
+#include "game/position.hpp"
+#include "core/types.hpp"
 
 namespace {
 

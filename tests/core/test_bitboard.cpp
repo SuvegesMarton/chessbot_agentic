@@ -1,8 +1,8 @@
 ﻿#include <cstdint>
 #include <iostream>
 
-#include "bitboard.hpp"
-#include "types.hpp"
+#include "core/bitboard.hpp"
+#include "core/types.hpp"
 
 namespace {
 

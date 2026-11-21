@@ -2,9 +2,9 @@
 #include <cstdint>
 #include <iostream>
 
-#include "bitboard.hpp"
-#include "position.hpp"
-#include "types.hpp"
+#include "core/bitboard.hpp"
+#include "game/position.hpp"
+#include "core/types.hpp"
 
 namespace {
 

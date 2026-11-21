@@ -1,11 +1,11 @@
 #define _WIN32_WINNT 0x0A00
-#include "web_server.hpp"
+#include "web/web_server.hpp"
 
-#include "game.hpp"
+#include "game/game.hpp"
 #include "httplib.h"
-#include "move.hpp"
-#include "position.hpp"
-#include "search.hpp"
+#include "core/move.hpp"
+#include "game/position.hpp"
+#include "game/search.hpp"
 
 #include <iostream>
 #include <mutex>

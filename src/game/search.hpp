@@ -2,8 +2,8 @@
 #include <cstdint>
 #include <functional>
 #include <vector>
-#include "move.hpp"
-#include "position.hpp"
+#include "core/move.hpp"
+#include "game/position.hpp"
 
 constexpr int MATE = 30000;
 

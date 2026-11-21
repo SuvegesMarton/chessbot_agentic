@@ -1,7 +1,7 @@
-#include "movegen.hpp"
+#include "game/movegen.hpp"
 
-#include "bitboard.hpp"
-#include "position.hpp"
+#include "core/bitboard.hpp"
+#include "game/position.hpp"
 
 namespace {
 
