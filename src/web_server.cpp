@@ -6,6 +6,7 @@
 #include "move.hpp"
 #include "position.hpp"
 
+#include <iostream>
 #include <mutex>
 #include <string>
 
@@ -50,28 +51,39 @@ void run_web_server(int port) {
     std::mutex mtx;
 
     httplib::Server svr;
-    svr.set_mount_point("/", "web");
+    // no-store keeps the browser from serving a stale app.js/style.css after a
+    // rebuild; static assets are tiny and served from localhost.
+    svr.set_mount_point("/", "web", {{"Cache-Control", "no-store"}});
 
     svr.WebSocket("/ws", [&session, &mtx](const httplib::Request&, httplib::ws::WebSocket& ws) {
+        auto send = [&ws](const std::string& s) {
+            std::cerr << "[chessbot] -> " << s << "\n";
+            ws.send(s);
+        };
+        std::cerr << "[chessbot] websocket client connected; sending state\n";
         {
             std::lock_guard<std::mutex> lk(mtx);
-            ws.send(build_state(session));
+            send(build_state(session));
         }
         while (true) {
             std::string msg;
             auto r = ws.read(msg);
-            if (r == httplib::ws::Fail) break;
+            if (r == httplib::ws::Fail) {
+                std::cerr << "[chessbot] websocket client disconnected\n";
+                break;
+            }
             if (r == httplib::ws::Timeout) continue;
             std::string line = msg;
             while (!line.empty() && (line.back() == '\n' || line.back() == '\r')) line.pop_back();
+            std::cerr << "[chessbot] <- " << line << "\n";
 
             bool emit = false;
             {
                 std::lock_guard<std::mutex> lk(mtx);
                 if (line == "uci") {
-                    ws.send("uciok");
+                    send("uciok");
                 } else if (line == "isready") {
-                    ws.send("readyok");
+                    send("readyok");
                 } else if (line == "ucinewgame") {
                     session.reset_startpos();
                     emit = true;
@@ -132,12 +144,12 @@ void run_web_server(int port) {
                         emit = true;
                     }
                 } else if (line.rfind("go", 0) == 0) {
-                    ws.send("bestmove 0000");
+                    send("bestmove 0000");
                 } else if (line == "stop") {
-                    ws.send("readyok");
+                    send("readyok");
                 }
                 if (emit) {
-                    ws.send(build_state(session));
+                    send(build_state(session));
                 }
             }
         }

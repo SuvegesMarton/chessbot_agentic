@@ -61,7 +61,6 @@ main {
   font-size: calc(var(--size) / 8 * 0.72);
   line-height: 1;
   user-select: none;
-  pointer-events: none;
 }
 
 .square.light { background: var(--light-square); color: #111; }

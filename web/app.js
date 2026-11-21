@@ -15,6 +15,9 @@ const state = {
   last_move: null,
 };
 
+let selected = null;
+let moves = [];
+
 const boardEl = document.getElementById("board");
 const connEl = document.getElementById("conn");
 const turnEl = document.getElementById("turn");
@@ -26,6 +29,12 @@ function squareNameToIndex(name) {
   const rank = name.charCodeAt(1) - 49;
   if (file < 0 || file > 7 || rank < 0 || rank > 7) return -1;
   return file + rank * 8;
+}
+
+function squareName(idx) {
+  const file = idx % 8;
+  const rank = Math.floor(idx / 8);
+  return String.fromCharCode(97 + file) + (rank + 1);
 }
 
 function isLight(file, rank) {
@@ -48,6 +57,8 @@ function render() {
       const sq = document.createElement("div");
       sq.className = "square " + (isLight(file, rank) ? "light" : "dark");
       if (idx === hiFrom || idx === hiTo) sq.classList.add("highlight");
+      if (idx === selected) sq.classList.add("selected");
+      sq.onclick = () => onSquareClick(idx);
 
       const code = state.board[idx];
       if (code) {
@@ -73,7 +84,25 @@ function applyState(msg) {
   if (msg.orientation === "white" || msg.orientation === "black") state.orientation = msg.orientation;
   if (msg.clocks) state.clocks = msg.clocks;
   if (typeof msg.status === "string") state.status = msg.status;
-  if ("last_move" in msg) state.last_move = msg.last_move;
+    if ("last_move" in msg) state.last_move = msg.last_move;
+}
+
+function send(text) {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(text);
+}
+
+function onSquareClick(idx) {
+  console.log("clicked square", idx, squareName(idx));
+  if (selected === null) {
+    selected = idx;
+    render();
+    return;
+  }
+  const uci = squareName(selected) + squareName(idx);
+  moves.push(uci);
+  send("position startpos moves " + moves.join(" "));
+  selected = null;
+  render();
 }
 
 let ws = null;
