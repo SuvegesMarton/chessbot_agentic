@@ -127,7 +127,7 @@ function applyState(msg) {
 
   humanColor = state.orientation === "white" ? "w" : "b";
 
-  if (state.side === humanColor && state.status === "playing") {
+  if (state.side === humanColor && (state.status === "playing" || state.status === "check")) {
     inputLocked = false;
   }
 }
