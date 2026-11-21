@@ -7,46 +7,25 @@
 #include "game/position.hpp"
 #include "game/search.hpp"
 
+#include <atomic>
 #include <iostream>
 #include <mutex>
 #include <string>
 #include <sstream>
-#include <chrono>
+#include <thread>
+#include <vector>
 
 namespace {
 
-std::string piece_char(Piece p) {
-    if (p.type == PieceType::None) return "null";
-    char c;
-    switch (p.type) {
-        case PieceType::Pawn: c = 'p'; break;
-        case PieceType::Knight: c = 'n'; break;
-        case PieceType::Bishop: c = 'b'; break;
-        case PieceType::Rook: c = 'r'; break;
-        case PieceType::Queen: c = 'q'; break;
-        case PieceType::King: c = 'k'; break;
-        default: c = '?'; break;
+struct WsSender {
+    httplib::ws::WebSocket* ws = nullptr;
+    std::mutex m;
+    void send(std::string_view line) {
+        std::lock_guard<std::mutex> lk(m);
+        std::cerr << "[chessbot] -> " << line << "\n";
+        ws->send(std::string(line));
     }
-    if (p.color == Color::White) c = static_cast<char>(c - ('a' - 'A'));
-    return "\"" + std::string(1, c) + "\"";
-}
-
-std::string build_state(GameSession& session) {
-    std::string j = "{\"type\":\"state\",\"fen\":\"" + session.fen() + "\",\"board\":[";
-    auto snap = session.board_snapshot();
-    for (int i = 0; i < 64; ++i) {
-        if (i) j += ",";
-        j += piece_char(snap[i]);
-    }
-    j += "],\"side\":\"";
-    j += session.side_to_move() == Color::White ? "w" : "b";
-    j += "\",\"orientation\":\"" + session.orientation_string() + "\",\"clocks\":{\"w_ms\":null,\"b_ms\":null},\"status\":\"" + session.status() + "\",\"last_move\":";
-    std::string lm = session.last_move_uci();
-    if (lm.empty()) j += "null";
-    else j += "\"" + lm + "\"";
-    j += "}";
-    return j;
-}
+};
 
 std::string build_legal_response(const std::string& square, const std::vector<std::string>& moves) {
     std::string j = "{\"type\":\"legal\",\"square\":\"" + square + "\",\"moves\":[";
@@ -131,13 +110,15 @@ void run_bot_turn(const std::function<void(const std::string&)>& send, GameSessi
     SearchResult result = searcher.search(session.compute_limits());
 
     if (result.best_move.from == Square::None) {
-        send(build_state(session));
+        send(session.clock_json());
+        send(session.state_json());
         return;
     }
 
     session.play_move(result.best_move);
     send("bestmove " + move_to_uci(result.best_move));
-    send(build_state(session));
+    send(session.clock_json());
+    send(session.state_json());
 }
 
 }  // namespace
@@ -150,21 +131,25 @@ void run_web_server(int port) {
     config.bot_depth = 6;
     config.movetime_ms = 300;
     session.new_game(config);
-    std::mutex mtx;
 
     httplib::Server svr;
     svr.set_mount_point("/", "web", {{"Cache-Control", "no-store"}});
 
-    svr.WebSocket("/ws", [&session, &mtx, &config](const httplib::Request&, httplib::ws::WebSocket& ws) {
-        auto send = [&ws](const std::string& s) {
-            std::cerr << "[chessbot] -> " << s << "\n";
-            ws.send(s);
+    svr.WebSocket("/ws", [&session, &config](const httplib::Request&, httplib::ws::WebSocket& ws) {
+        WsSender sender{&ws, {}};
+        auto send = [&sender](const std::string& s) { sender.send(s); };
+        std::thread bot_thread;
+        std::atomic<bool> bot_running{false};
+        GameConfig local_config = config;
+        session.set_emitter([&sender](const std::string& line) { sender.send(line); });
+        send(session.state_json());
+
+        auto stop_bot = [&]() {
+            session.request_stop();
+            if (bot_thread.joinable()) bot_thread.join();
+            bot_running.store(false);
         };
-        std::cerr << "[chessbot] websocket client connected; sending state\n";
-        {
-            std::lock_guard<std::mutex> lk(mtx);
-            send(build_state(session));
-        }
+
         while (true) {
             std::string msg;
             auto r = ws.read(msg);
@@ -177,17 +162,65 @@ void run_web_server(int port) {
             while (!line.empty() && (line.back() == '\n' || line.back() == '\r')) line.pop_back();
             std::cerr << "[chessbot] <- " << line << "\n";
 
-            bool emit = false;
-            {
-                std::lock_guard<std::mutex> lk(mtx);
-                if (line == "uci") {
-                    send("uciok");
-                } else if (line == "isready") {
-                    send("readyok");
-                } else if (line == "ucinewgame") {
-                    session.new_game(config);
-                    emit = true;
-                } else if (line.rfind("legal ", 0) == 0) {
+            if (line == "uci") {
+                send("uciok");
+            } else if (line == "isready") {
+                send("readyok");
+            } else if (line == "ucinewgame") {
+                stop_bot();
+                session.new_game(local_config);
+                if (local_config.wtime > 0 || local_config.btime > 0) session.start_clock();
+                send(session.state_json());
+            } else if (line.rfind("newgame", 0) == 0) {
+                stop_bot();
+                std::istringstream iss(line);
+                std::string cmd, side;
+                iss >> cmd >> side;
+                GameConfig cfg = local_config;
+                if (side == "human") {
+                    cfg.white = PlayerType::Human;
+                    cfg.black = PlayerType::Bot;
+                } else if (side == "bot") {
+                    cfg.white = PlayerType::Bot;
+                    cfg.black = PlayerType::Bot;
+                }
+                std::string tok;
+                while (iss >> tok) {
+                    if (tok == "wtime") { std::int64_t v; iss >> v; cfg.wtime = v; }
+                    else if (tok == "btime") { std::int64_t v; iss >> v; cfg.btime = v; }
+                    else if (tok == "winc") { std::int64_t v; iss >> v; cfg.winc = v; }
+                    else if (tok == "binc") { std::int64_t v; iss >> v; cfg.binc = v; }
+                }
+                local_config = cfg;
+                session.new_game(cfg);
+                if (cfg.wtime > 0 || cfg.btime > 0) session.start_clock();
+                send(session.state_json());
+                send(session.clock_json());
+                if (cfg.white == PlayerType::Bot && cfg.black == PlayerType::Bot) {
+                    bot_running.store(true);
+                    bot_thread = std::thread([&session, &bot_running, &sender]() {
+                        session.run_bot_bot([&sender](const std::string& l){ sender.send(l); });
+                        bot_running.store(false);
+                    });
+                }
+            } else if (line.rfind("move ", 0) == 0) {
+                if (bot_running.load()) {
+                    send("info string busy");
+                } else if (session.is_bot_turn()) {
+                    send("info string busy");
+                } else {
+                    Move m = parse_uci(line.substr(5));
+                    if (m.from != Square::None && session.play_move(m)) {
+                        if (session.is_bot_turn() && !session.game_over()) run_bot_turn(send, session);
+                        send(session.clock_json());
+                    } else {
+                        send(session.state_json());
+                    }
+                }
+            } else if (line.rfind("legal ", 0) == 0) {
+                if (bot_running.load()) {
+                    send("info string busy");
+                } else {
                     std::string sq_str = line.substr(6);
                     Square sq = parse_square(sq_str);
                     if (sq != Square::None) {
@@ -196,7 +229,13 @@ void run_web_server(int port) {
                     } else {
                         send(build_legal_response(sq_str, {}));
                     }
-                } else if (line.rfind("position", 0) == 0) {
+                }
+            } else if (line.rfind("position", 0) == 0) {
+                if (bot_running.load()) {
+                    send("info string busy");
+                } else {
+                    session.clock().stop();
+                    bool emit = false;
                     if (line.find("startpos") != std::string::npos) {
                         session.reset_startpos();
                         bool ok = true;
@@ -229,26 +268,49 @@ void run_web_server(int port) {
                         }
                         emit = ok;
                     }
-                } else if (line.rfind("go", 0) == 0) {
+                    if (emit) {
+                        send(session.state_json());
+                        if (session.is_bot_turn() && !session.game_over()) {
+                            run_bot_turn(send, session);
+                        }
+                    }
+                }
+            } else if (line.rfind("go", 0) == 0) {
+                if (bot_running.load()) {
+                    send("info string busy");
+                } else {
                     SearchLimits limits = parse_go_command(line);
+                    if (limits.wtime > 0 || limits.btime > 0 || limits.winc > 0 || limits.binc > 0) {
+                        session.configure_clock(limits.wtime, limits.btime, limits.winc, limits.binc);
+                    }
                     Searcher searcher(session.position_ref());
                     searcher.set_info_callback([&send](const SearchInfo& info) {
                         send_info_line(send, info);
                     });
                     SearchResult result = searcher.search(limits);
                     send("bestmove " + move_to_uci(result.best_move));
-                } else if (line == "stop") {
-                    send("readyok");
                 }
-                if (emit) {
-                    send(build_state(session));
-                    if (session.is_bot_turn() && !session.game_over()) {
-                        run_bot_turn(send, session);
-                    }
-                }
+            } else if (line == "stop") {
+                session.request_stop();
+                send("readyok");
             }
         }
+
+        stop_bot();
+        session.set_emitter(nullptr);
     });
 
     svr.listen("0.0.0.0", port);
+}
+
+namespace web {
+void send_info_line(const std::function<void(const std::string&)>& send, const SearchInfo& info) {
+    ::send_info_line(send, info);
+}
+void run_bot_turn(const std::function<void(const std::string&)>& send, GameSession& session) {
+    ::run_bot_turn(send, session);
+}
+SearchLimits parse_go_command(std::string_view line) {
+    return ::parse_go_command(line);
+}
 }

@@ -14,9 +14,12 @@
     <span id="status-text">-</span>
   </header>
   <main>
+    <div class="clocks"><div id="clock-b" class="clock">--:--</div><div id="clock-w" class="clock">--:--</div></div>
     <div id="board"></div>
+    <div class="controls"><button id="btn-new-human">New (human)</button><button id="btn-new-bot">New (bot vs bot)</button></div>
     <pre id="fen"></pre>
   </main>
+  <div id="game-over" class="overlay hidden"><div class="panel"><h2 id="go-result"></h2><p id="go-reason"></p><button id="btn-newgame">New game</button></div></div>
   <script src="app.js"></script>
 </body>
 </html>

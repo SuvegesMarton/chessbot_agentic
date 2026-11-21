@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 project(chessbot CXX)
 
+find_package(Threads REQUIRED)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -31,6 +33,7 @@ add_executable(chessbot
     src/game/position.cpp
     src/game/movegen.cpp
     src/game/game.cpp
+    src/game/clock.cpp
     src/web/web_server.cpp
     src/game/eval.cpp
     src/game/search.cpp
@@ -39,6 +42,7 @@ target_include_directories(chessbot PRIVATE src third_party)
 if(WIN32)
     target_link_libraries(chessbot PRIVATE ws2_32)
 endif()
+target_link_libraries(chessbot PRIVATE Threads::Threads)
 chessbot_enable_native(chessbot)
 
 add_executable(test_main tests/core/test_main.cpp)
@@ -61,11 +65,12 @@ add_executable(test_position_helpers tests/game/test_position_helpers.cpp src/ga
 target_include_directories(test_position_helpers PRIVATE src)
 chessbot_enable_native(test_position_helpers)
 
-add_executable(test_web_server tests/web/test_web_server.cpp src/web/web_server.cpp src/game/game.cpp src/game/position.cpp src/game/movegen.cpp src/game/eval.cpp src/game/search.cpp)
+add_executable(test_web_server tests/web/test_web_server.cpp src/web/web_server.cpp src/game/game.cpp src/game/position.cpp src/game/movegen.cpp src/game/eval.cpp src/game/search.cpp src/game/clock.cpp)
 target_include_directories(test_web_server PRIVATE src third_party)
 if(WIN32)
     target_link_libraries(test_web_server PRIVATE ws2_32)
 endif()
+target_link_libraries(test_web_server PRIVATE Threads::Threads)
 # Intentionally no chessbot_enable_native(test_web_server): see note above.
 
 add_executable(test_movegen tests/game/test_movegen.cpp src/game/position.cpp src/game/movegen.cpp)
@@ -80,6 +85,16 @@ add_executable(test_search tests/game/test_search.cpp src/game/position.cpp src/
 target_include_directories(test_search PRIVATE src)
 chessbot_enable_native(test_search)
 
+add_executable(test_game tests/game/test_game.cpp src/game/position.cpp src/game/movegen.cpp src/game/eval.cpp src/game/search.cpp src/game/game.cpp src/game/clock.cpp)
+target_include_directories(test_game PRIVATE src)
+target_link_libraries(test_game PRIVATE Threads::Threads)
+chessbot_enable_native(test_game)
+
+add_executable(test_clock tests/game/test_clock.cpp src/game/clock.cpp)
+target_include_directories(test_clock PRIVATE src)
+target_link_libraries(test_clock PRIVATE Threads::Threads)
+chessbot_enable_native(test_clock)
+
 add_test(NAME test_main COMMAND test_main)
 add_test(NAME test_bitboard COMMAND test_bitboard)
 add_test(NAME test_move COMMAND test_move)
@@ -89,3 +104,5 @@ add_test(NAME test_web_server COMMAND test_web_server)
 add_test(NAME test_movegen COMMAND test_movegen)
 add_test(NAME test_eval COMMAND test_eval)
 add_test(NAME test_search COMMAND test_search)
+add_test(NAME test_game COMMAND test_game)
+add_test(NAME test_clock COMMAND test_clock)

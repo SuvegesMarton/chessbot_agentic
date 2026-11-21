@@ -21,6 +21,7 @@ let moves = [];
 let humanColor = "w";
 let thinking = false;
 let inputLocked = false;
+let gameOver = false;
 
 const boardEl = document.getElementById("board");
 const connEl = document.getElementById("conn");
@@ -28,6 +29,11 @@ const turnEl = document.getElementById("turn");
 const gameStatusEl = document.getElementById("game-status");
 const fenEl = document.getElementById("fen");
 const statusEl = document.getElementById("status-text");
+const clockWEl = document.getElementById("clock-w");
+const clockBEl = document.getElementById("clock-b");
+const overlayEl = document.getElementById("game-over");
+const goResultEl = document.getElementById("go-result");
+const goReasonEl = document.getElementById("go-reason");
 
 function squareNameToIndex(name) {
   const file = name.charCodeAt(0) - 97;
@@ -127,9 +133,59 @@ function applyState(msg) {
 
   humanColor = state.orientation === "white" ? "w" : "b";
 
-  if (state.side === humanColor && (state.status === "playing" || state.status === "check")) {
+  renderClocks();
+
+  if (!gameOver && state.side === humanColor && (state.status === "playing" || state.status === "check")) {
     inputLocked = false;
+  } else {
+    inputLocked = true;
   }
+}
+
+function fmtClock(ms) {
+  if (ms === null || ms === undefined) return "--:--";
+  if (ms < 0) ms = 0;
+  const totalSec = ms / 1000;
+  if (ms < 20000) {
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec - m * 60;
+    return m + ":" + (s < 10 ? "0" : "") + s.toFixed(1);
+  }
+  const m = Math.floor(totalSec / 60);
+  const s = Math.floor(totalSec % 60);
+  return m + ":" + (s < 10 ? "0" : "") + s;
+}
+
+function renderClocks() {
+  if (!clockWEl || !clockBEl) return;
+  const w = state.clocks ? state.clocks.w_ms : null;
+  const b = state.clocks ? state.clocks.b_ms : null;
+  clockWEl.textContent = fmtClock(w);
+  clockBEl.textContent = fmtClock(b);
+  clockWEl.classList.toggle("low", w !== null && w !== undefined && w < 20000);
+  clockBEl.classList.toggle("low", b !== null && b !== undefined && b < 20000);
+  clockWEl.classList.toggle("active", state.side === "w" && w !== null && w !== undefined);
+  clockBEl.classList.toggle("active", state.side === "b" && b !== null && b !== undefined);
+}
+
+function handleGameOver(msg) {
+  gameOver = true;
+  thinking = false;
+  inputLocked = true;
+  const map = { "1-0": "White wins", "0-1": "Black wins", "1/2": "Draw" };
+  if (goResultEl) goResultEl.textContent = map[msg.result] || msg.result;
+  if (goReasonEl) goReasonEl.textContent = msg.reason || "";
+  if (overlayEl) overlayEl.classList.remove("hidden");
+  render();
+}
+
+function newGame(kind) {
+  gameOver = false;
+  if (overlayEl) overlayEl.classList.add("hidden");
+  thinking = false;
+  inputLocked = true;
+  if (kind === "bot") send("newgame bot wtime 300000 btime 300000 winc 2000 binc 2000");
+  else send("newgame human");
 }
 
 function send(text) {
@@ -176,7 +232,9 @@ function onSquareClick(idx) {
     moves.push(moveUci);
     inputLocked = true;
     thinking = true;
-    send("position startpos moves " + moves.join(" "));
+    // Send only the new move incrementally so the server's stateful clock is
+    // advanced exactly once (the full-list reconstruction would double-count).
+    send("move " + moveUci);
     clearHighlights();
     render();
     return;
@@ -245,6 +303,11 @@ function connect() {
           }
         }
         render();
+      } else if (msg.type === "clock") {
+        state.clocks = { w_ms: msg.w_ms, b_ms: msg.b_ms };
+        renderClocks();
+      } else if (msg.type === "game_over") {
+        handleGameOver(msg);
       }
     } else {
       handleTextMessage(text);
@@ -270,5 +333,13 @@ function scheduleReconnect() {
   }, 1500);
 }
 
+const btnNewHuman = document.getElementById("btn-new-human");
+const btnNewBot = document.getElementById("btn-new-bot");
+const btnNewgame = document.getElementById("btn-newgame");
+if (btnNewHuman) btnNewHuman.addEventListener("click", () => newGame("human"));
+if (btnNewBot) btnNewBot.addEventListener("click", () => newGame("bot"));
+if (btnNewgame) btnNewgame.addEventListener("click", () => newGame("human"));
+
 render();
+renderClocks();
 connect();
