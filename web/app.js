@@ -16,6 +16,7 @@ const state = {
 };
 
 let selected = null;
+let target = null;
 let moves = [];
 
 const boardEl = document.getElementById("board");
@@ -57,7 +58,8 @@ function render() {
       const sq = document.createElement("div");
       sq.className = "square " + (isLight(file, rank) ? "light" : "dark");
       if (idx === hiFrom || idx === hiTo) sq.classList.add("highlight");
-      if (idx === selected) sq.classList.add("selected");
+      if (idx === selected) sq.classList.add("from");
+      if (idx === target) sq.classList.add("to");
       sq.onclick = () => onSquareClick(idx);
 
       const code = state.board[idx];
@@ -94,16 +96,25 @@ function send(text) {
 }
 
 function onSquareClick(idx) {
-  console.log("clicked square", idx, squareName(idx));
   if (selected === null) {
     selected = idx;
+    target = null;
     render();
     return;
   }
-  const uci = squareName(selected) + squareName(idx);
+  if (idx === selected) {
+    selected = null;
+    target = null;
+    render();
+    return;
+  }
+  target = idx;
+  render();
+  const uci = squareName(selected) + squareName(target);
   moves.push(uci);
   send("position startpos moves " + moves.join(" "));
   selected = null;
+  target = null;
   render();
 }
 
