@@ -43,6 +43,25 @@ std::string recv_line(httplib::ws::WebSocketClient& ws) {
     return std::string();
 }
 
+// Read lines until we get a bestmove line, return the bestmove line.
+std::string recv_bestmove(httplib::ws::WebSocketClient& ws) {
+    for (int i = 0; i < 600; ++i) {
+        std::string frame;
+        auto r = ws.read(frame);
+        if (r == httplib::ws::Fail) return std::string();
+        if (r == httplib::ws::Timeout) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            continue;
+        }
+        while (!frame.empty() && (frame.back() == '\n' || frame.back() == '\r')) frame.pop_back();
+        if (!frame.empty() && frame.rfind("bestmove", 0) == 0) {
+            return frame;
+        }
+        // Skip info lines and other lines
+    }
+    return std::string();
+}
+
 }  // namespace
 
 int main() {
@@ -94,7 +113,7 @@ int main() {
         check(afterFen.find("4k3/8/8/8/8/8/8/4K3") != std::string::npos, "state reflects fen");
 
         check(ws->send("go"), "send go");
-        const std::string bm = recv_line(*ws);
+        const std::string bm = recv_bestmove(*ws);
         check(bm.rfind("bestmove", 0) == 0, "go -> bestmove");
 
         check(ws->send("stop"), "send stop");

@@ -26,7 +26,15 @@ endfunction()
 
 enable_testing()
 
-add_executable(chessbot src/main.cpp src/position.cpp src/game.cpp src/web_server.cpp src/movegen.cpp)
+add_executable(chessbot
+    src/main.cpp
+    src/position.cpp
+    src/movegen.cpp
+    src/game.cpp
+    src/web_server.cpp
+    src/eval.cpp
+    src/search.cpp
+)
 target_include_directories(chessbot PRIVATE src third_party)
 if(WIN32)
     target_link_libraries(chessbot PRIVATE ws2_32)
@@ -53,7 +61,7 @@ add_executable(test_position_helpers tests/test_position_helpers.cpp src/positio
 target_include_directories(test_position_helpers PRIVATE src)
 chessbot_enable_native(test_position_helpers)
 
-add_executable(test_web_server tests/test_web_server.cpp src/web_server.cpp src/game.cpp src/position.cpp src/movegen.cpp)
+add_executable(test_web_server tests/test_web_server.cpp src/web_server.cpp src/game.cpp src/position.cpp src/movegen.cpp src/eval.cpp src/search.cpp)
 target_include_directories(test_web_server PRIVATE src third_party)
 if(WIN32)
     target_link_libraries(test_web_server PRIVATE ws2_32)
@@ -64,6 +72,14 @@ add_executable(test_movegen tests/test_movegen.cpp src/position.cpp src/movegen.
 target_include_directories(test_movegen PRIVATE src)
 chessbot_enable_native(test_movegen)
 
+add_executable(test_eval tests/test_eval.cpp src/position.cpp src/movegen.cpp src/eval.cpp)
+target_include_directories(test_eval PRIVATE src)
+chessbot_enable_native(test_eval)
+
+add_executable(test_search tests/test_search.cpp src/position.cpp src/movegen.cpp src/eval.cpp src/search.cpp)
+target_include_directories(test_search PRIVATE src)
+chessbot_enable_native(test_search)
+
 add_test(NAME test_main COMMAND test_main)
 add_test(NAME test_bitboard COMMAND test_bitboard)
 add_test(NAME test_move COMMAND test_move)
@@ -71,3 +87,5 @@ add_test(NAME test_position COMMAND test_position)
 add_test(NAME test_position_helpers COMMAND test_position_helpers)
 add_test(NAME test_web_server COMMAND test_web_server)
 add_test(NAME test_movegen COMMAND test_movegen)
+add_test(NAME test_eval COMMAND test_eval)
+add_test(NAME test_search COMMAND test_search)

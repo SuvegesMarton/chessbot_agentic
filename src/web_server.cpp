@@ -5,11 +5,13 @@
 #include "httplib.h"
 #include "move.hpp"
 #include "position.hpp"
+#include "search.hpp"
 
 #include <iostream>
 #include <mutex>
 #include <string>
 #include <sstream>
+#include <chrono>
 
 namespace {
 
@@ -83,17 +85,76 @@ void apply_moves_strict(GameSession& session, std::string_view moves_str) {
     }
 }
 
+SearchLimits parse_go_command(std::string_view line) {
+    SearchLimits limits;
+    limits.max_depth = 64;
+
+    std::istringstream iss(std::string(line.substr(2)));
+    std::string token;
+    while (iss >> token) {
+        if (token == "movetime") {
+            iss >> limits.movetime_ms;
+        } else if (token == "depth") {
+            iss >> limits.max_depth;
+        } else if (token == "wtime") {
+            iss >> limits.wtime;
+        } else if (token == "btime") {
+            iss >> limits.btime;
+        } else if (token == "winc") {
+            iss >> limits.winc;
+        } else if (token == "binc") {
+            iss >> limits.binc;
+        }
+    }
+    return limits;
+}
+
+void send_info_line(const std::function<void(const std::string&)>& send, const SearchInfo& info) {
+    std::string line = "info depth " + std::to_string(info.depth) +
+                       " score cp " + std::to_string(info.score) +
+                       " nodes " + std::to_string(info.nodes);
+    if (info.pv_move.from != Square::None) {
+        line += " pv " + move_to_uci(info.pv_move);
+    }
+    send(line);
+}
+
+void run_bot_turn(const std::function<void(const std::string&)>& send, GameSession& session) {
+    if (!session.is_bot_turn() || session.game_over()) return;
+
+    Searcher searcher(session.position_ref());
+    searcher.set_info_callback([&send](const SearchInfo& info) {
+        send_info_line(send, info);
+    });
+
+    SearchResult result = searcher.search(session.compute_limits());
+
+    if (result.best_move.from == Square::None) {
+        send(build_state(session));
+        return;
+    }
+
+    session.play_move(result.best_move);
+    send("bestmove " + move_to_uci(result.best_move));
+    send(build_state(session));
+}
+
 }  // namespace
 
 void run_web_server(int port) {
     GameSession session;
-    session.reset_startpos();
+    GameConfig config;
+    config.white = PlayerType::Human;
+    config.black = PlayerType::Bot;
+    config.bot_depth = 6;
+    config.movetime_ms = 300;
+    session.new_game(config);
     std::mutex mtx;
 
     httplib::Server svr;
     svr.set_mount_point("/", "web", {{"Cache-Control", "no-store"}});
 
-    svr.WebSocket("/ws", [&session, &mtx](const httplib::Request&, httplib::ws::WebSocket& ws) {
+    svr.WebSocket("/ws", [&session, &mtx, &config](const httplib::Request&, httplib::ws::WebSocket& ws) {
         auto send = [&ws](const std::string& s) {
             std::cerr << "[chessbot] -> " << s << "\n";
             ws.send(s);
@@ -123,7 +184,7 @@ void run_web_server(int port) {
                 } else if (line == "isready") {
                     send("readyok");
                 } else if (line == "ucinewgame") {
-                    session.reset_startpos();
+                    session.new_game(config);
                     emit = true;
                 } else if (line.rfind("legal ", 0) == 0) {
                     std::string sq_str = line.substr(6);
@@ -163,12 +224,21 @@ void run_web_server(int port) {
                         emit = true;
                     }
                 } else if (line.rfind("go", 0) == 0) {
-                    send("bestmove 0000");
+                    SearchLimits limits = parse_go_command(line);
+                    Searcher searcher(session.position_ref());
+                    searcher.set_info_callback([&send](const SearchInfo& info) {
+                        send_info_line(send, info);
+                    });
+                    SearchResult result = searcher.search(limits);
+                    send("bestmove " + move_to_uci(result.best_move));
                 } else if (line == "stop") {
                     send("readyok");
                 }
                 if (emit) {
                     send(build_state(session));
+                    if (session.is_bot_turn() && !session.game_over()) {
+                        run_bot_turn(send, session);
+                    }
                 }
             }
         }

@@ -18,12 +18,16 @@ const state = {
 let selected = null;
 let legalTargets = new Set();
 let moves = [];
+let humanColor = "w";
+let thinking = false;
+let inputLocked = false;
 
 const boardEl = document.getElementById("board");
 const connEl = document.getElementById("conn");
 const turnEl = document.getElementById("turn");
 const gameStatusEl = document.getElementById("game-status");
 const fenEl = document.getElementById("fen");
+const statusEl = document.getElementById("status-text");
 
 function squareNameToIndex(name) {
   const file = name.charCodeAt(0) - 97;
@@ -84,6 +88,31 @@ function render() {
   turnEl.textContent = "side: " + (state.side === "w" ? "white" : "black");
   gameStatusEl.textContent = "status: " + state.status;
   fenEl.textContent = state.fen;
+
+  updateStatusDisplay();
+}
+
+function updateStatusDisplay() {
+  if (!statusEl) return;
+  if (thinking) {
+    statusEl.textContent = "thinking...";
+    statusEl.classList.add("thinking");
+  } else if (inputLocked) {
+    statusEl.textContent = "waiting for opponent...";
+    statusEl.classList.remove("thinking");
+  } else if (state.status === "checkmate") {
+    statusEl.textContent = "Checkmate!";
+    statusEl.classList.remove("thinking");
+  } else if (state.status === "stalemate") {
+    statusEl.textContent = "Stalemate";
+    statusEl.classList.remove("thinking");
+  } else if (state.status === "check") {
+    statusEl.textContent = "Check!";
+    statusEl.classList.remove("thinking");
+  } else {
+    statusEl.textContent = "Your move";
+    statusEl.classList.remove("thinking");
+  }
 }
 
 function applyState(msg) {
@@ -95,6 +124,12 @@ function applyState(msg) {
   if (typeof msg.status === "string") state.status = msg.status;
   if ("last_move" in msg) state.last_move = msg.last_move;
   clearHighlights();
+
+  humanColor = state.orientation === "white" ? "w" : "b";
+
+  if (state.side === humanColor && state.status === "playing") {
+    inputLocked = false;
+  }
 }
 
 function send(text) {
@@ -107,6 +142,8 @@ function requestLegalMoves(sqIdx) {
 }
 
 function onSquareClick(idx) {
+  if (inputLocked || thinking) return;
+
   const piece = state.board[idx];
   const isOwnPiece = piece && ((state.side === "w" && piece === piece.toUpperCase()) ||
                                 (state.side === "b" && piece === piece.toLowerCase()));
@@ -128,24 +165,23 @@ function onSquareClick(idx) {
 
   if (legalTargets.has(idx)) {
     const uci = squareName(selected) + squareName(idx);
-    const promoIdx = uci.length === 4 && (idx % 8 === 0 || idx % 8 === 7) && 
+    const promoIdx = uci.length === 4 && (idx % 8 === 0 || idx % 8 === 7) &&
                      (state.side === "w" && Math.floor(idx / 8) === 7 ||
                       state.side === "b" && Math.floor(idx / 8) === 0) &&
                      piece && piece.toLowerCase() === 'p';
-    // For simplicity, auto-promote to queen for pawn promotions
-    // A full implementation would show a promotion dialog
     let moveUci = uci;
     if (promoIdx) {
       moveUci += "q";
     }
     moves.push(moveUci);
+    inputLocked = true;
+    thinking = true;
     send("position startpos moves " + moves.join(" "));
     clearHighlights();
     render();
     return;
   }
 
-  // Clicked a different square - check if it's own piece
   if (isOwnPiece) {
     selected = idx;
     requestLegalMoves(idx);
@@ -153,6 +189,22 @@ function onSquareClick(idx) {
     clearHighlights();
   }
   render();
+}
+
+function handleTextMessage(text) {
+  if (text.startsWith("info ")) {
+    const depthMatch = text.match(/depth\s+(\d+)/);
+    const scoreMatch = text.match(/score\s+cp\s+([-\d]+)/);
+    thinking = true;
+    render();
+    return;
+  }
+
+  if (text.startsWith("bestmove ")) {
+    thinking = false;
+    render();
+    return;
+  }
 }
 
 let ws = null;
@@ -190,6 +242,8 @@ function connect() {
         }
         render();
       }
+    } else {
+      handleTextMessage(text);
     }
   };
 

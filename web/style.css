@@ -91,3 +91,20 @@ main {
   word-break: break-all;
   margin: 0;
 }
+
+#status-text {
+  font-style: italic;
+  color: #aaa;
+  min-width: 120px;
+  text-align: center;
+}
+
+#status-text.thinking {
+  color: #ffd36e;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
