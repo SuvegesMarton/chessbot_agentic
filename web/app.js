@@ -65,6 +65,8 @@ function render() {
         const span = document.createElement("span");
         span.className = "piece";
         span.textContent = GLYPHS[code] || "";
+        span.style.color = code === code.toUpperCase() ? "white" : "#111";
+        if (code === code.toUpperCase()) span.style.textShadow = "0 0 3px rgba(0,0,0,0.7)";
         sq.appendChild(span);
       }
       boardEl.appendChild(sq);
