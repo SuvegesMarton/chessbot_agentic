@@ -26,7 +26,7 @@ endfunction()
 
 enable_testing()
 
-add_executable(chessbot src/main.cpp src/position.cpp src/game.cpp src/web_server.cpp)
+add_executable(chessbot src/main.cpp src/position.cpp src/game.cpp src/web_server.cpp src/movegen.cpp)
 target_include_directories(chessbot PRIVATE src third_party)
 if(WIN32)
     target_link_libraries(chessbot PRIVATE ws2_32)
@@ -53,12 +53,16 @@ add_executable(test_position_helpers tests/test_position_helpers.cpp src/positio
 target_include_directories(test_position_helpers PRIVATE src)
 chessbot_enable_native(test_position_helpers)
 
-add_executable(test_web_server tests/test_web_server.cpp src/web_server.cpp src/game.cpp src/position.cpp)
+add_executable(test_web_server tests/test_web_server.cpp src/web_server.cpp src/game.cpp src/position.cpp src/movegen.cpp)
 target_include_directories(test_web_server PRIVATE src third_party)
 if(WIN32)
     target_link_libraries(test_web_server PRIVATE ws2_32)
 endif()
 # Intentionally no chessbot_enable_native(test_web_server): see note above.
+
+add_executable(test_movegen tests/test_movegen.cpp src/position.cpp src/movegen.cpp)
+target_include_directories(test_movegen PRIVATE src)
+chessbot_enable_native(test_movegen)
 
 add_test(NAME test_main COMMAND test_main)
 add_test(NAME test_bitboard COMMAND test_bitboard)
@@ -66,3 +70,4 @@ add_test(NAME test_move COMMAND test_move)
 add_test(NAME test_position COMMAND test_position)
 add_test(NAME test_position_helpers COMMAND test_position_helpers)
 add_test(NAME test_web_server COMMAND test_web_server)
+add_test(NAME test_movegen COMMAND test_movegen)

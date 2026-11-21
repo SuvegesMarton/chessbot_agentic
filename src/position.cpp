@@ -86,6 +86,38 @@ std::uint64_t compute_hash(const Position& pos) {
 
 }  // namespace
 
+Square Position::king_square(Color c) const {
+    Bitboard kings = pieces[static_cast<int>(c)][static_cast<int>(PieceType::King)];
+    if (kings == 0) return Square::None;
+    return square_of(kings);
+}
+
+bool Position::in_check(Color c) const {
+    Square ks = king_square(c);
+    if (ks == Square::None) return false;
+    return is_square_attacked(*this, ks, opposite(c));
+}
+
+bool is_square_attacked(const Position& pos, Square sq, Color byColor) {
+    const int c = static_cast<int>(byColor);
+    // knights
+    if (knight_attacks[static_cast<int>(sq)] & pos.pieces[c][static_cast<int>(PieceType::Knight)]) return true;
+    // king
+    if (king_attacks[static_cast<int>(sq)] & pos.pieces[c][static_cast<int>(PieceType::King)]) return true;
+    // pawns
+    if (byColor == Color::White) {
+        if (pawn_attacks_black[static_cast<int>(sq)] & pos.pieces[c][static_cast<int>(PieceType::Pawn)]) return true;
+    } else {
+        if (pawn_attacks_white[static_cast<int>(sq)] & pos.pieces[c][static_cast<int>(PieceType::Pawn)]) return true;
+    }
+    // sliding
+    Bitboard rookQ = pos.pieces[c][static_cast<int>(PieceType::Rook)] | pos.pieces[c][static_cast<int>(PieceType::Queen)];
+    Bitboard bishopQ = pos.pieces[c][static_cast<int>(PieceType::Bishop)] | pos.pieces[c][static_cast<int>(PieceType::Queen)];
+    if (rook_attacks(sq, pos.all_occupancy) & rookQ) return true;
+    if (bishop_attacks(sq, pos.all_occupancy) & bishopQ) return true;
+    return false;
+}
+
 void Position::set_starting_position() {
     pieces = {};
     occupancy = {0, 0};

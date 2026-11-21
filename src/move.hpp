@@ -10,6 +10,21 @@
 
 constexpr std::size_t MOVE_LIST_CAPACITY = 256;
 
+struct Move {
+    Square from = Square::None;
+    Square to = Square::None;
+    PieceType promotion = PieceType::None;
+};
+
+struct Undo {
+    Move move{};
+    PieceType captured = PieceType::None;
+    Square en_passant = Square::None;
+    std::uint8_t castling_rights = 0;
+    std::uint8_t halfmove_clock = 0;
+    std::uint64_t hash = 0;
+};
+
 struct MoveList {
     std::array<Move, MOVE_LIST_CAPACITY> moves{};
     std::size_t count = 0;

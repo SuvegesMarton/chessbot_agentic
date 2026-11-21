@@ -9,8 +9,10 @@
 #include <iostream>
 #include <mutex>
 #include <string>
+#include <sstream>
 
 namespace {
+
 std::string piece_char(Piece p) {
     if (p.type == PieceType::None) return "null";
     char c;
@@ -24,7 +26,7 @@ std::string piece_char(Piece p) {
         default: c = '?'; break;
     }
     if (p.color == Color::White) c = static_cast<char>(c - ('a' - 'A'));
-    return std::string("\"") + c + "\"";
+    return "\"" + std::string(1, c) + "\"";
 }
 
 std::string build_state(GameSession& session) {
@@ -43,6 +45,44 @@ std::string build_state(GameSession& session) {
     j += "}";
     return j;
 }
+
+std::string build_legal_response(const std::string& square, const std::vector<std::string>& moves) {
+    std::string j = "{\"type\":\"legal\",\"square\":\"" + square + "\",\"moves\":[";
+    for (size_t i = 0; i < moves.size(); ++i) {
+        if (i) j += ",";
+        j += "\"" + moves[i] + "\"";
+    }
+    j += "]}";
+    return j;
+}
+
+Square parse_square(std::string_view s) {
+    if (s.size() != 2) return Square::None;
+    int f = s[0] - 'a';
+    int r = s[1] - '1';
+    if (f < 0 || f >= 8 || r < 0 || r >= 8) return Square::None;
+    return make_square(f, r);
+}
+
+void apply_moves_strict(GameSession& session, std::string_view moves_str) {
+    std::size_t i = 0;
+    while (i < moves_str.size()) {
+        while (i < moves_str.size() && moves_str[i] == ' ') ++i;
+        if (i >= moves_str.size()) break;
+        std::size_t j = moves_str.find(' ', i);
+        if (j == std::string::npos) j = moves_str.size();
+        std::string tok = std::string(moves_str.substr(i, j - i));
+        i = j;
+        Move m = parse_uci(tok);
+        if (m.from != Square::None) {
+            if (!session.try_apply_move(m)) {
+                std::cerr << "[chessbot] illegal move rejected: " << tok << "\n";
+                break;
+            }
+        }
+    }
+}
+
 }  // namespace
 
 void run_web_server(int port) {
@@ -51,8 +91,6 @@ void run_web_server(int port) {
     std::mutex mtx;
 
     httplib::Server svr;
-    // no-store keeps the browser from serving a stale app.js/style.css after a
-    // rebuild; static assets are tiny and served from localhost.
     svr.set_mount_point("/", "web", {{"Cache-Control", "no-store"}});
 
     svr.WebSocket("/ws", [&session, &mtx](const httplib::Request&, httplib::ws::WebSocket& ws) {
@@ -87,31 +125,26 @@ void run_web_server(int port) {
                 } else if (line == "ucinewgame") {
                     session.reset_startpos();
                     emit = true;
+                } else if (line.rfind("legal ", 0) == 0) {
+                    std::string sq_str = line.substr(6);
+                    Square sq = parse_square(sq_str);
+                    if (sq != Square::None) {
+                        auto moves = session.legal_moves_for_square(sq);
+                        send(build_legal_response(sq_str, moves));
+                    } else {
+                        send(build_legal_response(sq_str, {}));
+                    }
                 } else if (line.rfind("position", 0) == 0) {
                     if (line.find("startpos") != std::string::npos) {
                         session.reset_startpos();
                         auto mi = line.find("moves");
                         if (mi != std::string::npos) {
-                            std::string rest = line.substr(mi + 5);
-                            std::size_t i = 0;
-                            while (i < rest.size()) {
-                                while (i < rest.size() && rest[i] == ' ') ++i;
-                                if (i >= rest.size()) break;
-                                std::size_t j = rest.find(' ', i);
-                                if (j == std::string::npos) j = rest.size();
-                                std::string tok = rest.substr(i, j - i);
-                                i = j;
-                                Move m = parse_uci(tok);
-                                if (m.from != Square::None) {
-                                    session.apply_move(m);
-                                }
-                            }
+                            apply_moves_strict(session, line.substr(mi + 5));
                         }
                         emit = true;
                     } else if (line.find("fen") != std::string::npos) {
                         auto fi = line.find("fen");
                         std::string after = line.substr(fi + 3);
-                        // trim leading space
                         std::size_t s = after.find_first_not_of(' ');
                         if (s != std::string::npos) after = after.substr(s);
                         auto mi = after.find("moves");
@@ -123,23 +156,9 @@ void run_web_server(int port) {
                         } else {
                             fenpart = after;
                         }
-                        // trim trailing spaces
                         while (!fenpart.empty() && fenpart.back() == ' ') fenpart.pop_back();
                         if (session.set_fen(fenpart)) {
-                            // apply moves
-                            std::size_t i = 0;
-                            while (i < movespart.size()) {
-                                while (i < movespart.size() && movespart[i] == ' ') ++i;
-                                if (i >= movespart.size()) break;
-                                std::size_t j = movespart.find(' ', i);
-                                if (j == std::string::npos) j = movespart.size();
-                                std::string tok = movespart.substr(i, j - i);
-                                i = j;
-                                Move m = parse_uci(tok);
-                                if (m.from != Square::None) {
-                                    session.apply_move(m);
-                                }
-                            }
+                            apply_moves_strict(session, movespart);
                         }
                         emit = true;
                     }

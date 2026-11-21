@@ -6,21 +6,7 @@
 #include <string_view>
 
 #include "types.hpp"
-
-struct Move {
-    Square from = Square::None;
-    Square to = Square::None;
-    PieceType promotion = PieceType::None;
-};
-
-struct Undo {
-    Move move{};
-    PieceType captured = PieceType::None;
-    Square en_passant = Square::None;
-    std::uint8_t castling_rights = 0;
-    std::uint8_t halfmove_clock = 0;
-    std::uint64_t hash = 0;
-};
+#include "move.hpp"
 
 class Position {
 public:
@@ -44,4 +30,7 @@ public:
     std::string to_fen() const;
 
     std::uint64_t hash() const { return zobrist_hash; }
+    
+    Square king_square(Color c) const;
+    bool in_check(Color c) const;
 };

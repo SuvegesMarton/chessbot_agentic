@@ -3,10 +3,12 @@
 #include <array>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "position.hpp"
 #include "types.hpp"
 #include "move.hpp"
+#include "movegen.hpp"
 
 class GameSession {
 public:
@@ -22,9 +24,18 @@ public:
     std::string status() const { return status_; }
 
     void set_orientation(Color c) { orientation = c; }
-    void apply_move(const Move& m) { last_move = m; has_last_move = true; pos.make_move(m); }
+    
+    // Legal move queries
+    std::vector<std::string> legal_moves_for_square(Square sq) const;
+    std::vector<std::string> all_legal_moves() const;
+    
+    // Strict move application with validation
+    bool try_apply_move(const Move& m);
+    void apply_move(const Move& m) { last_move = m; has_last_move = true; pos.make_move(m); update_status(); }
 
 private:
+    void update_status();
+    
     Position pos;
     Color orientation = Color::White;
     Move last_move{};

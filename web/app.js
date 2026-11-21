@@ -16,7 +16,7 @@ const state = {
 };
 
 let selected = null;
-let target = null;
+let legalTargets = new Set();
 let moves = [];
 
 const boardEl = document.getElementById("board");
@@ -42,6 +42,11 @@ function isLight(file, rank) {
   return (file + rank) % 2 === 1;
 }
 
+function clearHighlights() {
+  selected = null;
+  legalTargets.clear();
+}
+
 function render() {
   boardEl.textContent = "";
   const white = state.orientation !== "black";
@@ -59,7 +64,7 @@ function render() {
       sq.className = "square " + (isLight(file, rank) ? "light" : "dark");
       if (idx === hiFrom || idx === hiTo) sq.classList.add("highlight");
       if (idx === selected) sq.classList.add("from");
-      if (idx === target) sq.classList.add("to");
+      if (legalTargets.has(idx)) sq.classList.add("legal-target");
       sq.onclick = () => onSquareClick(idx);
 
       const code = state.board[idx];
@@ -88,33 +93,65 @@ function applyState(msg) {
   if (msg.orientation === "white" || msg.orientation === "black") state.orientation = msg.orientation;
   if (msg.clocks) state.clocks = msg.clocks;
   if (typeof msg.status === "string") state.status = msg.status;
-    if ("last_move" in msg) state.last_move = msg.last_move;
+  if ("last_move" in msg) state.last_move = msg.last_move;
+  clearHighlights();
 }
 
 function send(text) {
   if (ws && ws.readyState === WebSocket.OPEN) ws.send(text);
 }
 
+function requestLegalMoves(sqIdx) {
+  const sqName = squareName(sqIdx);
+  send("legal " + sqName);
+}
+
 function onSquareClick(idx) {
+  const piece = state.board[idx];
+  const isOwnPiece = piece && ((state.side === "w" && piece === piece.toUpperCase()) ||
+                                (state.side === "b" && piece === piece.toLowerCase()));
+
   if (selected === null) {
-    selected = idx;
-    target = null;
+    if (isOwnPiece) {
+      selected = idx;
+      requestLegalMoves(idx);
+    }
     render();
     return;
   }
+
   if (idx === selected) {
-    selected = null;
-    target = null;
+    clearHighlights();
     render();
     return;
   }
-  target = idx;
-  render();
-  const uci = squareName(selected) + squareName(target);
-  moves.push(uci);
-  send("position startpos moves " + moves.join(" "));
-  selected = null;
-  target = null;
+
+  if (legalTargets.has(idx)) {
+    const uci = squareName(selected) + squareName(idx);
+    const promoIdx = uci.length === 4 && (idx % 8 === 0 || idx % 8 === 7) && 
+                     (state.side === "w" && Math.floor(idx / 8) === 7 ||
+                      state.side === "b" && Math.floor(idx / 8) === 0) &&
+                     piece && piece.toLowerCase() === 'p';
+    // For simplicity, auto-promote to queen for pawn promotions
+    // A full implementation would show a promotion dialog
+    let moveUci = uci;
+    if (promoIdx) {
+      moveUci += "q";
+    }
+    moves.push(moveUci);
+    send("position startpos moves " + moves.join(" "));
+    clearHighlights();
+    render();
+    return;
+  }
+
+  // Clicked a different square - check if it's own piece
+  if (isOwnPiece) {
+    selected = idx;
+    requestLegalMoves(idx);
+  } else {
+    clearHighlights();
+  }
   render();
 }
 
@@ -139,9 +176,20 @@ function connect() {
     } catch (e) {
       msg = null;
     }
-    if (msg && (msg.type === "state" || (typeof msg.fen === "string" && Array.isArray(msg.board)))) {
-      applyState(msg);
-      render();
+    if (msg) {
+      if (msg.type === "state" || (typeof msg.fen === "string" && Array.isArray(msg.board))) {
+        applyState(msg);
+        render();
+      } else if (msg.type === "legal") {
+        legalTargets.clear();
+        if (Array.isArray(msg.moves)) {
+          for (const move of msg.moves) {
+            const toIdx = squareNameToIndex(move.slice(2, 4));
+            if (toIdx >= 0) legalTargets.add(toIdx);
+          }
+        }
+        render();
+      }
     }
   };
 
