@@ -31,10 +31,10 @@ void Clock::set_tick_callback(TickCallback cb) {
 void Clock::start(std::int64_t w_ms, std::int64_t b_ms,
                   std::int64_t winc_ms, std::int64_t binc_ms,
                   Color running_side) {
-    if (tick_thread_.joinable() &&
-        tick_thread_.get_id() != std::this_thread::get_id()) {
-        tick_thread_.join();
-    }
+    // Promptly halt any previous tick thread before reseeding. Joining it while
+    // it is still running would block until its old clock drained to zero (up to
+    // the entire previous time control), so stop() first to signal it to exit.
+    stop();
 
     {
         std::lock_guard<std::mutex> lk(mutex_);

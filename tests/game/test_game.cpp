@@ -539,6 +539,226 @@ void phase4_search_leaves_position_intact() {
     check(g.side_to_move() == Color::Black, "side flipped to black");
 }
 
+// ---------------------------------------------------------------------------
+// state_json / clock_json / game_over_json
+// ---------------------------------------------------------------------------
+
+void state_json_no_clock_test() {
+    GameSession g;
+    g.new_game(GameConfig{});
+    std::string j = g.state_json();
+    check(j.find("\"type\":\"state\"") != std::string::npos, "state json has type");
+    check(j.find("\"fen\":\"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1\"")
+              != std::string::npos,
+          "state json has startpos fen");
+    check(j.find("\"side\":\"w\"") != std::string::npos, "state json has white side");
+    check(j.find("\"orientation\":\"white\"") != std::string::npos, "state json orientation white");
+    check(j.find("\"status\":\"playing\"") != std::string::npos, "state json status playing");
+    check(j.find("\"last_move\":null") != std::string::npos, "state json last_move null");
+    // Clock inactive (no time control) -> clocks reported as null.
+    check(j.find("\"w_ms\":null,\"b_ms\":null") != std::string::npos,
+          "state json clocks null when no clock");
+}
+
+void state_json_active_clock_test() {
+    GameSession g;
+    GameConfig cfg;
+    cfg.wtime = 10000;
+    cfg.btime = 20000;
+    g.new_game(cfg);
+    g.start_clock();
+    std::string j = g.state_json();
+    check(j.find("\"w_ms\":") != std::string::npos, "state json has w_ms when clock active");
+    check(j.find("\"b_ms\":") != std::string::npos, "state json has b_ms when clock active");
+    check(j.find("\"w_ms\":null") == std::string::npos, "state json not null when clock active");
+    g.clock().stop();
+}
+
+void state_json_last_move_test() {
+    GameSession g;
+    g.new_game(GameConfig{});
+    check(g.play_move(parse_uci("e2e4")), "play e2e4");
+    std::string j = g.state_json();
+    check(j.find("\"last_move\":\"e2e4\"") != std::string::npos, "state json reports last move");
+    check(j.find("\"side\":\"b\"") != std::string::npos, "state json side black after e2e4");
+}
+
+void clock_json_test() {
+    GameSession g;
+    GameConfig cfg;
+    cfg.wtime = 10000;
+    cfg.btime = 20000;
+    g.new_game(cfg);
+    g.start_clock();
+    std::string j = g.clock_json();
+    check(j.find("\"type\":\"clock\"") != std::string::npos, "clock json has type");
+    check(j.find("\"w_ms\":") != std::string::npos, "clock json has w_ms");
+    check(j.find("\"b_ms\":") != std::string::npos, "clock json has b_ms");
+    g.clock().stop();
+}
+
+void game_over_json_test() {
+    GameSession g;
+    check(g.set_fen("6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1"), "set mate-in-1");
+    Move ra8{Square::A1, Square::A8, PieceType::None};
+    check(g.try_apply_move(ra8), "apply Ra8#");
+    GameResult r = g.result();
+    check(r.over && r.result == "1-0" && r.reason == "checkmate", "result is checkmate");
+    std::string j = g.game_over_json();
+    check(j.find("\"type\":\"game_over\"") != std::string::npos, "game_over json has type");
+    check(j.find("\"result\":\"1-0\"") != std::string::npos, "game_over json result 1-0");
+    check(j.find("\"reason\":\"checkmate\"") != std::string::npos, "game_over json reason checkmate");
+}
+
+// ---------------------------------------------------------------------------
+// configure_clock / start_clock
+// ---------------------------------------------------------------------------
+
+void start_clock_noop_without_time_test() {
+    GameSession g;
+    GameConfig cfg; // all times zero
+    g.new_game(cfg);
+    g.start_clock();
+    check(!g.clock().running(), "start_clock does not run with zero time control");
+}
+
+void start_clock_runs_with_time_test() {
+    GameSession g;
+    GameConfig cfg;
+    cfg.wtime = 10000;
+    cfg.btime = 10000;
+    g.new_game(cfg);
+    g.start_clock();
+    check(g.clock().running(), "start_clock runs with a time control");
+    check(g.clock().remaining_ms(Color::White) == 10000, "white clock seeded to wtime");
+    check(g.clock().running_side() == Color::White, "clock runs side to move (white)");
+    g.clock().stop();
+}
+
+void configure_clock_test() {
+    GameSession g;
+    g.new_game(GameConfig{});
+    g.configure_clock(30000, 40000, 500, 800);
+    check(g.clock().running(), "configure_clock starts the clock");
+    check(g.clock().remaining_ms(Color::White) == 30000, "configure_clock seeds white");
+    check(g.clock().remaining_ms(Color::Black) == 40000, "configure_clock seeds black");
+    check(g.clock().increment_ms(Color::White) == 500, "configure_clock white increment");
+    check(g.clock().increment_ms(Color::Black) == 800, "configure_clock black increment");
+    g.clock().stop();
+}
+
+void configure_clock_zero_stops_test() {
+    GameSession g;
+    GameConfig cfg;
+    cfg.wtime = 10000;
+    cfg.btime = 10000;
+    g.new_game(cfg);
+    g.start_clock();
+    check(g.clock().running(), "clock running before configure_clock(0)");
+    g.configure_clock(0, 0, 0, 0);
+    check(!g.clock().running(), "configure_clock(0) stops the clock");
+}
+
+// ---------------------------------------------------------------------------
+// compute_limits with flagged clock
+// ---------------------------------------------------------------------------
+
+void compute_limits_flagged_test() {
+    GameSession g;
+    GameConfig cfg;
+    cfg.wtime = 200;
+    cfg.btime = 60000;
+    g.new_game(cfg);
+    g.start_clock();
+    g.clock().deduct(201); // flag white
+    check(g.clock().flagged(), "clock flagged white");
+    SearchLimits l = g.compute_limits();
+    check(l.movetime_ms == 0, "flagged clock yields zero movetime");
+}
+
+// ---------------------------------------------------------------------------
+// legal_moves_for_square with promotion
+// ---------------------------------------------------------------------------
+
+void legal_moves_promotion_test() {
+    GameSession g;
+    check(g.set_fen("8/4P3/8/8/8/8/8/4K2k w - - 0 1"), "set_fen promotion position");
+    std::vector<std::string> e7 = g.legal_moves_for_square(Square::E7);
+    check(e7.size() == 4, "e7 pawn has 4 promotion moves");
+    check(contains(e7, "e7e8q"), "promotions include queen");
+    check(contains(e7, "e7e8r"), "promotions include rook");
+    check(contains(e7, "e7e8b"), "promotions include bishop");
+    check(contains(e7, "e7e8n"), "promotions include knight");
+}
+
+// ---------------------------------------------------------------------------
+// emitter / game-over emit (regression for consume_game_over_emit fix)
+// ---------------------------------------------------------------------------
+
+void emitter_receives_lines_test() {
+    GameSession g;
+    GameConfig cfg;
+    cfg.movetime_ms = 100;
+    cfg.bot_depth = 1;
+    g.new_game(cfg);
+    std::vector<std::string> lines;
+    g.set_emitter([&lines](const std::string& l) { lines.push_back(l); });
+    // A checkmate triggers a game_over emit through the emitter.
+    check(g.set_fen("6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1"), "set mate-in-1");
+    Move ra8{Square::A1, Square::A8, PieceType::None};
+    check(g.try_apply_move(ra8), "apply Ra8#");
+    bool found_game_over = false;
+    for (const std::string& l : lines) {
+        if (l.find("\"type\":\"game_over\"") != std::string::npos) found_game_over = true;
+    }
+    check(found_game_over, "emitter received game_over line on mate");
+    g.set_emitter(nullptr);
+}
+
+void game_over_emit_once_test() {
+    // The game_over line must be emitted exactly once even if check_end and
+    // poll_flag both observe the terminal state.
+    GameSession g;
+    GameConfig cfg;
+    cfg.wtime = 200;
+    cfg.btime = 60000;
+    g.new_game(cfg);
+    int game_over_emits = 0;
+    g.set_emitter([&game_over_emits](const std::string& l) {
+        if (l.find("\"type\":\"game_over\"") != std::string::npos) ++game_over_emits;
+    });
+    g.start_clock();
+    g.clock().deduct(201); // flag white -> handle_clock_flag emits once
+    g.check_end();         // must not re-emit
+    g.poll_flag();         // must not re-emit
+    check(game_over_emits == 1, "game_over emitted exactly once across check_end/poll_flag");
+    g.set_emitter(nullptr);
+    g.clock().stop();
+}
+
+void run_bot_bot_emits_bestmove_test() {
+    GameSession g;
+    GameConfig cfg;
+    cfg.white = PlayerType::Bot;
+    cfg.black = PlayerType::Bot;
+    cfg.bot_depth = 2;
+    cfg.movetime_ms = 100;
+    g.new_game(cfg);
+    check(g.set_fen("6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1"), "set mate-in-1 for bot");
+    std::vector<std::string> lines;
+    g.run_bot_bot([&lines](const std::string& l) { lines.push_back(l); });
+    bool found_state = false, found_bestmove = false, found_game_over = false;
+    for (const std::string& l : lines) {
+        if (l.find("\"type\":\"state\"") != std::string::npos) found_state = true;
+        if (l.rfind("bestmove", 0) == 0) found_bestmove = true;
+        if (l.find("\"type\":\"game_over\"") != std::string::npos) found_game_over = true;
+    }
+    check(found_state, "run_bot_bot emits state");
+    check(found_bestmove, "run_bot_bot emits bestmove");
+    check(found_game_over, "run_bot_bot emits game_over on mate");
+    check(g.game_over(), "run_bot_bot ends with game over on mate");
+}
+
 }  // namespace
 
 int main() {
@@ -573,6 +793,20 @@ int main() {
     phase4_fifty_move_rule();
     phase4_threefold();
     phase4_search_leaves_position_intact();
+    state_json_no_clock_test();
+    state_json_active_clock_test();
+    state_json_last_move_test();
+    clock_json_test();
+    game_over_json_test();
+    start_clock_noop_without_time_test();
+    start_clock_runs_with_time_test();
+    configure_clock_test();
+    configure_clock_zero_stops_test();
+    compute_limits_flagged_test();
+    legal_moves_promotion_test();
+    emitter_receives_lines_test();
+    game_over_emit_once_test();
+    run_bot_bot_emits_bestmove_test();
 
     if (failures == 0) {
         std::cout << "All game tests passed\n";

@@ -128,7 +128,7 @@ void run_web_server(int port) {
     GameConfig config;
     config.white = PlayerType::Human;
     config.black = PlayerType::Bot;
-    config.bot_depth = 6;
+    config.bot_depth = 7;
     config.movetime_ms = 300;
     session.new_game(config);
 

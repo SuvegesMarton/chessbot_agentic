@@ -276,7 +276,9 @@ void GameSession::emit_line(const std::string& line) {
 bool GameSession::consume_game_over_emit() {
     std::lock_guard<std::mutex> lk(result_mutex_);
     if (!result_.over) return false;
-    return game_over_emitted_.exchange(true, std::memory_order_acq_rel);
+    // exchange(true) returns the previous value: false the first time the game
+    // is over (so this call should emit) and true afterwards (already emitted).
+    return !game_over_emitted_.exchange(true, std::memory_order_acq_rel);
 }
 
 void GameSession::start_clock() {

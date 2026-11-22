@@ -144,6 +144,23 @@ void search_reversibility() {
     check(side_before == side_after, "side to move unchanged after search");
 }
 
+void search_finds_free_material() {
+    // White pawn on e4 can capture an undefended black queen on d5.
+    Position p;
+    check(p.set_fen("4k3/8/8/3q4/4P3/8/8/4K3 w - - 0 1"), "set free-queen position");
+    std::uint64_t hash_before = p.hash();
+
+    Searcher s(p);
+    SearchLimits limits;
+    limits.max_depth = 3;
+    limits.movetime_ms = 500;
+    SearchResult r = s.search(limits);
+
+    check(r.best_move.from == Square::E4 && r.best_move.to == Square::D5,
+          "search captures the free queen on d5");
+    check(p.hash() == hash_before, "position hash unchanged after capture search");
+}
+
 } // namespace
 
 int main() {
@@ -153,6 +170,7 @@ int main() {
     search_time_budget_respected();
     search_terminal_handling();
     search_reversibility();
+    search_finds_free_material();
 
     if (failures == 0) {
         std::cout << "All search tests passed\n";
