@@ -109,6 +109,7 @@ bool GameSession::try_apply_move(const Move& m) {
             has_last_move = true;
             pos.make_move(legal_move);
             update_status();
+            start_clock_if_needed(mover);
             clock_.on_move(mover);
             push_history();
             check_end();
@@ -288,6 +289,18 @@ void GameSession::start_clock() {
         clock_.stop();
 }
 
+void GameSession::start_clock_if_needed(Color mover) {
+    if (clock_.running() || clock_.flagged()) return;
+    std::int64_t w = config_.wtime;
+    std::int64_t b = config_.btime;
+    if (w == 0 && b == 0 && config_.movetime_ms > 0) {
+        w = config_.movetime_ms;
+        b = config_.movetime_ms;
+    }
+    if (w > 0 || b > 0)
+        clock_.start(w, b, config_.winc, config_.binc, mover);
+}
+
 void GameSession::configure_clock(std::int64_t wtime, std::int64_t btime,
                                   std::int64_t winc, std::int64_t binc) {
     config_.wtime = wtime;
@@ -298,6 +311,12 @@ void GameSession::configure_clock(std::int64_t wtime, std::int64_t btime,
 }
 
 std::string GameSession::clock_json() const {
+    if (!clock_.running() && !clock_.flagged() &&
+        (config_.wtime > 0 || config_.btime > 0 || config_.movetime_ms > 0)) {
+        std::int64_t w = config_.wtime > 0 ? config_.wtime : config_.movetime_ms;
+        std::int64_t b = config_.btime > 0 ? config_.btime : config_.movetime_ms;
+        return make_clock_json(w, b);
+    }
     return make_clock_json(clock_.remaining_ms(Color::White), clock_.remaining_ms(Color::Black));
 }
 
@@ -324,9 +343,21 @@ std::string GameSession::state_json() const {
     j += (pos.side_to_move == Color::White ? "w" : "b");
     j += "\",\"orientation\":\"" + orientation_string() + "\",\"clocks\":{";
     bool clock_active = clock_.running() || clock_.flagged();
+    std::int64_t w_ms = 0;
+    std::int64_t b_ms = 0;
+    bool clocks_set = false;
     if (clock_active) {
-        j += "\"w_ms\":" + std::to_string(clock_.remaining_ms(Color::White));
-        j += ",\"b_ms\":" + std::to_string(clock_.remaining_ms(Color::Black));
+        w_ms = clock_.remaining_ms(Color::White);
+        b_ms = clock_.remaining_ms(Color::Black);
+        clocks_set = true;
+    } else if (config_.wtime > 0 || config_.btime > 0 || config_.movetime_ms > 0) {
+        w_ms = config_.wtime > 0 ? config_.wtime : config_.movetime_ms;
+        b_ms = config_.btime > 0 ? config_.btime : config_.movetime_ms;
+        clocks_set = true;
+    }
+    if (clocks_set) {
+        j += "\"w_ms\":" + std::to_string(w_ms);
+        j += ",\"b_ms\":" + std::to_string(b_ms);
     } else {
         j += "\"w_ms\":null,\"b_ms\":null";
     }

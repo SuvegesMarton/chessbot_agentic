@@ -22,7 +22,7 @@ struct GameConfig {
     PlayerType white = PlayerType::Human;
     PlayerType black = PlayerType::Bot;
     int bot_depth = 6;
-    std::int64_t movetime_ms = 300;
+    std::int64_t movetime_ms = 0;
     std::int64_t wtime = 0, btime = 0, winc = 0, binc = 0;
 };
 
@@ -68,12 +68,10 @@ public:
     void request_stop() { stop_requested_.store(true, std::memory_order_relaxed); }
     bool stop_requested() const { return stop_requested_.load(std::memory_order_relaxed); }
 
-    // Start the countdown from config_ times (no-op if no time control). Running
-    // side = side to move. Call after new_game / when a time control is set.
     void start_clock();
-    // Store new base times and (re)start the clock if it is active.
     void configure_clock(std::int64_t wtime, std::int64_t btime,
                          std::int64_t winc, std::int64_t binc);
+    void start_clock_if_needed(Color mover);
 
     const chessclock::Clock& clock() const { return clock_; }
     chessclock::Clock& clock() { return clock_; }

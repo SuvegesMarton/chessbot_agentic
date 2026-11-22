@@ -129,7 +129,7 @@ void run_web_server(int port) {
     config.white = PlayerType::Human;
     config.black = PlayerType::Bot;
     config.bot_depth = 7;
-    config.movetime_ms = 300;
+    config.movetime_ms = 300000;
     session.new_game(config);
 
     httplib::Server svr;
