@@ -211,8 +211,9 @@ void run_web_server(int port) {
                 } else {
                     Move m = parse_uci(line.substr(5));
                     if (m.from != Square::None && session.play_move(m)) {
-                        if (session.is_bot_turn() && !session.game_over()) run_bot_turn(send, session);
                         send(session.clock_json());
+                        send(session.state_json());
+                        if (session.is_bot_turn() && !session.game_over()) run_bot_turn(send, session);
                     } else {
                         send(session.state_json());
                     }
